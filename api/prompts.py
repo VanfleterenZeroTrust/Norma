@@ -1,13 +1,21 @@
+from typing import List, Dict, Any
+
 SYSTEM_PROMPT = (
-    "You are an assistant that answers **only** based on the provided excerpts. "
-    "Always cite the sources with their IDs in the format [DOC x]. "
+    "You are an assistant that answers only based on the provided excerpts. "
+    "Always include [DOC x] citations that correspond to the provided snippets. "
     "Answer in English clearly and concisely."
 )
 
-def build_messages(question: str, contexts: list[str]):
-    context_block = "\n\n".join(f"[DOC {i}]\n{c}" for i, c in enumerate(contexts))
-    user = f"Context:\n{context_block}\n\nQuestion: {question}\nAnswer using only the provided context and include source citations."
+def build_messages(question: str, contexts: List[Dict[str, Any]]):
+    context_block = "\n\n".join(
+        f"[DOC {i+1}]\n{c.get('content','')}" for i, c in enumerate(contexts)
+    )
+    user = (
+        f"Context:\n{context_block}\n\n"
+        f"Question: {question}\n\n"
+        "Answer using only the provided context and include source citations like [DOC x]."
+    )
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": user}
+        {"role": "user", "content": user},
     ]
