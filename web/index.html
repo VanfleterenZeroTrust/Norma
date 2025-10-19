@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Compliance Chat (RAG)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg:#0b1220; --panel:#121a2b; --accent:#5aa7ff;
+      --text:#e8eef7; --muted:#9fb2cc; --chip:#1a2742;
+      --border:#1b2640; --good:#3ddc97; --warn:#ffd166;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
+      display:flex; flex-direction:column;
+    }
+    header{
+      padding:14px 18px; background:var(--panel); border-bottom:1px solid var(--border);
+      display:flex; align-items:center; gap:10px;
+    }
+    .dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+    h1{font-size:16px;margin:0}
+    .container{
+      flex:1; display:flex; justify-content:center;
+    }
+    .chat{
+      width:100%; max-width:900px; display:flex; flex-direction:column; gap:12px;
+      padding:18px;
+    }
+    .messages{
+      flex:1; min-height:50vh; background:var(--panel); border:1px solid var(--border);
+      border-radius:14px; padding:14px; overflow:auto;
+      display:flex; flex-direction:column; gap:10px;
+    }
+    .bubble{
+      max-width:80%; padding:10px 12px; border-radius:12px; line-height:1.5;
+      border:1px solid var(--border); white-space:pre-wrap;
+    }
+    .user{align-self:flex-end; background:var(--chip); border-left:3px solid var(--accent)}
+    .assistant{align-self:flex-start; background:#0f1730; border-left:3px solid var(--good)}
+    .inputbar{
+      display:flex; gap:10px; align-items:flex-end; margin-top:8px;
+      background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:10px;
+    }
+    textarea{
+      flex:1; resize:vertical; min-height:48px; max-height:180px;
+      border:0; outline:none; background:transparent; color:var(--text); font-size:16px;
+    }
+    button{
+      background:var(--accent); color:#041327; border:1px solid var(--accent);
+      padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600;
+    }
+    button:disabled{opacity:.6; cursor:not-allowed}
+    .hint{color:var(--muted); font-size:13px; text-align:center; margin-top:6px}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="dot"></div><h1>Compliance Chat (RAG)</h1>
+  </header>
+
+  <div class="container">
+    <div class="chat">
+      <div id="messages" class="messages">
+        <div class="bubble assistant">👋 Ask a question about your compliance documents (ISO 27001, NIST, NIS2…).</div>
+      </div>
+
+      <div class="inputbar">
+        <textarea id="q" placeholder="Type your question… (Enter to send, Shift+Enter for newline)"></textarea>
+        <button id="send">Send</button>
+      </div>
+      <div class="hint">API: <code id="apiLabel">http://127.0.0.1:8000/ask</code></div>
+    </div>
+  </div>
+
+  <script>
+    // >>> Adjust if your API runs elsewhere
+    const API_URL = "http://127.0.0.1:8000/ask";
+    document.getElementById("apiLabel").textContent = API_URL;
+
+    const $ = sel => document.querySelector(sel);
+    const messages = $("#messages");
+    const input = $("#q");
+    const sendBtn = $("#send");
+
+    function addBubble(text, role){
+      const div = document.createElement("div");
+      div.className = `bubble ${role}`;
+      div.textContent = text;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    async function ask(){
+      const question = input.value.trim();
+      if(!question) return;
+      addBubble(question, "user");
+      input.value = "";
+      sendBtn.disabled = true;
+
+      // placeholder while waiting
+      const thinking = document.createElement("div");
+      thinking.className = "bubble assistant";
+      thinking.textContent = "⏳ Thinking…";
+      messages.appendChild(thinking);
+      messages.scrollTop = messages.scrollHeight;
+
+      try {
+        const r = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question })
+        });
+        const data = await r.json();
+        if(!r.ok) throw new Error(data.detail || r.statusText);
+        thinking.remove();
+        addBubble(data.answer || "(no answer)", "assistant");
+      } catch (e) {
+        thinking.remove();
+        addBubble("❌ Error: " + e.message, "assistant");
+      } finally {
+        sendBtn.disabled = false;
+        input.focus();
+      }
+    }
+
+    sendBtn.onclick = ask;
+    input.addEventListener("keydown", (e) => {
+      if(e.key === "Enter" && !e.shiftKey){
+        e.preventDefault();
+        ask();
+      }
+    });
+  </script>
+</body>
+</html>
