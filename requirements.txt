@@ -1,0 +1,11 @@
+pypdf
+python-dotenv
+azure-search-documents==11.4.0b8
+tiktoken
+fastembed>=0.7.3
+fastapi
+uvicorn[standard]
+python-dotenv
+httpx
+pydantic
+
