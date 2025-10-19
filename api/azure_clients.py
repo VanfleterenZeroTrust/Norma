@@ -16,7 +16,7 @@ LLM_MODEL = os.environ.get("LLM_MODEL_NAME", "phi-4-mini-instruct")
 LLM_ENDPOINT = os.environ["LLM_ENDPOINT"]
 LLM_API_KEY = os.environ["LLM_API_KEY"]
 
-# Embedding requêtes (384 dims)
+# Embedding (384 dims for MiniLM)
 _EMBED_MODEL_ID = os.environ.get(
     "EMBEDDER_MODEL_ID", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 )
@@ -24,11 +24,14 @@ _embedder = TextEmbedding(model_name=_EMBED_MODEL_ID)
 
 def embed_query(text: str) -> List[float]:
     vec = next(_embedder.embed([text], batch_size=1))
+    # ensure native Python floats (not numpy types)
     return [float(x) for x in vec]
 
 def get_search_client() -> SearchClient:
     return SearchClient(
-        AZURE_SEARCH_ENDPOINT, AZURE_SEARCH_INDEX, AzureKeyCredential(AZURE_SEARCH_ADMIN_KEY)
+        AZURE_SEARCH_ENDPOINT,
+        AZURE_SEARCH_INDEX,
+        AzureKeyCredential(AZURE_SEARCH_ADMIN_KEY),
     )
 
 async def chat_completion(messages):

@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any
 from retrieval import retrieve
@@ -16,15 +16,17 @@ class AskResponse(BaseModel):
 
 @app.post("/ask", response_model=AskResponse)
 async def ask(req: AskRequest):
-    contexts: List[Dict[str, Any]] = retrieve(req.question)
-    messages = build_messages(req.question, contexts)
-    answer = await chat_completion(messages)
-    return AskResponse(
-        answer=answer.strip(),
-        sources=[c["id"] for c in contexts],
-    )
+    try:
+        contexts: List[Dict[str, Any]] = retrieve(req.question)
+        messages = build_messages(req.question, contexts)
+        answer = await chat_completion(messages)
+        return AskResponse(
+            answer=(answer or "").strip(),
+            sources=[c["id"] for c in contexts],
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
 def root():
     return {"status": "ok"}
-
