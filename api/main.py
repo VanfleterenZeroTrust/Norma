@@ -1,38 +1,30 @@
-import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
-from dotenv import load_dotenv
-from fastapi.middleware.cors import CORSMiddleware
-from azure_clients import ModelsClient
-from retrieval import Retriever
+from typing import List, Dict, Any
+from retrieval import retrieve
 from prompts import build_messages
+from azure_clients import chat_completion
 
-load_dotenv()
-app=FastAPI(title="RAG Azure Student")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], allow_credentials=True,
-    allow_methods=["*"], allow_headers=["*"]
-)
+app = FastAPI(title="RAG Student API", version="1.0")
 
-models=ModelsClient()
-retriever=Retriever()
-
-class AskBody(BaseModel):
+class AskRequest(BaseModel):
     question: str
 
-@app.get("/health")
-def health():
-    return {"ok": True}
+class AskResponse(BaseModel):
+    answer: str
+    sources: List[str]
 
-@app.post("/ask")
-async def ask(body: AskBody):
-    q=body.question.strip()
-    if not q:
-        raise HTTPException(400, "Empty question")
-    vec = models.embed([q])[0]
-    hits = retriever.hybrid(q, vec, k=5)
-    contexts=[h["content"] for h in hits]
-    messages=build_messages(q, contexts)
-    answer = await models.chat(messages)
-    return {"answer": answer, "sources": hits}
+@app.post("/ask", response_model=AskResponse)
+async def ask(req: AskRequest):
+    contexts: List[Dict[str, Any]] = retrieve(req.question)
+    messages = build_messages(req.question, contexts)
+    answer = await chat_completion(messages)
+    return AskResponse(
+        answer=answer.strip(),
+        sources=[c["id"] for c in contexts],
+    )
+
+@app.get("/")
+def root():
+    return {"status": "ok"}
+
